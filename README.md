@@ -1,1 +1,1 @@
-# GoFeed
+GoFeed Server: A Go-based backend application designed to aggregate, categorize, and personalize news content for users. Utilizing the Gorilla Mux router for efficient HTTP request handling, this server fetches news from multiple APIs, processes and categorizes the collected items, and delivers customized news feeds to users based on their predefined preferences. Developed with efficiency and scalability in mind, GoFeed Server ensures a seamless and responsive news browsing experience.

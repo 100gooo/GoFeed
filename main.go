@@ -5,16 +5,17 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 )
 
 type News struct {
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	Category    string   `json:"category"`
-	Source      string   `json:"source"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Category    string `json:"category"`
+	Source      string `json:"source"`
 }
 
 var newsItems []News
@@ -31,6 +32,12 @@ func init() {
 			Category:    "Technology",
 			Source:      "Source 1",
 		},
+		{
+			Title:       "Title 2",
+			Description: "Description 2",
+			Category:    "Science",
+			Source:      "Source 2",
+		},
 	}
 }
 
@@ -39,10 +46,25 @@ func getNews(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(newsItems)
 }
 
+func getNewsByCategory(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	category := r.URL.Query().Get("category")
+
+	var filteredNews []News
+	for _, item := range newsItems {
+		if strings.EqualFold(item.Category, category) {
+			filteredNews = append(filteredNews, item)
+		}
+	}
+
+	json.NewEncoder(w).Encode(filteredNews)
+}
+
 func main() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/getNews", getNews).Methods("GET")
+	r.HandleFunc("/searchNews", getNewsByCategory).Methods("GET")
 
 	port, exists := os.LookupEnv("PORT")
 	if !exists {

@@ -11,21 +11,21 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type News struct {
+type Article struct {
 	Title       string `json:"title"`
 	Description string `json:"description"`
 	Category    string `json:"category"`
 	Source      string `json:"source"`
 }
 
-var newsItems []News
+var articles []Article
 
 func init() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
 
-	newsItems = []News{
+	articles = []Article{
 		{
 			Title:       "Title 1",
 			Description: "Description 1",
@@ -41,30 +41,30 @@ func init() {
 	}
 }
 
-func getNews(w http.ResponseWriter, r *http.Request) {
+func fetchArticles(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(newsItems)
+	json.NewEncoder(w).Encode(articles)
 }
 
-func getNewsByCategory(w http.ResponseWriter, r *http.Request) {
+func fetchArticlesByCategory(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	category := r.URL.Query().Get("category")
+	category := strings.ToLower(r.URL.Query().Get("category"))
 
-	var filteredNews []News
-	for _, item := range newsItems {
-		if strings.EqualFold(item.Category, category) {
-			filteredNews = append(filteredNews, item)
+	var filteredArticles []Article
+	for _, article := range articles {
+		if strings.ToLower(article.Category) == category {
+			filteredArticles = append(filteredArticles, article)
 		}
 	}
 
-	json.NewEncoder(w).Encode(filteredNews)
+	json.NewEncoder(w).Encode(filteredArticles)
 }
 
 func main() {
-	r := mux.NewRouter()
+	router := mux.NewRouter()
 
-	r.HandleFunc("/getNews", getNews).Methods("GET")
-	r.HandleFunc("/searchNews", getNewsByCategory).Methods("GET")
+	router.HandleFunc("/articles", fetchArticles).Methods("GET")
+	router.HandleFunc("/articles/search", fetchArticlesByCategory).Methods("GET")
 
 	port, exists := os.LookupEnv("PORT")
 	if !exists {
@@ -72,7 +72,7 @@ func main() {
 	}
 
 	log.Printf("Server starting on port %s\n", port)
-	if err := http.ListenAndServe(":"+port, r); err != nil {
+	if err := http.ListenAndServe(":"+port, router); err != nil {
 		log.Fatalf("Error occurred while running the server: %s", err)
 	}
 }

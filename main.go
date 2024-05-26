@@ -60,11 +60,34 @@ func fetchArticlesByCategory(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(filteredArticles)
 }
 
+func addArticle(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var newArticle Article
+	if err := json.NewDecoder(r.Body).Decode(&newFromRequest); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode("Invalid article format")
+		return
+	}
+
+	// Basic Validation
+	if newArticle.Title == "" || newArticle.Description == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode("Missing title or description")
+		return
+	}
+
+	articles = append(articles, newArticle)
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(newArticle)
+}
+
 func main() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/articles", fetchArticles).Methods("GET")
 	router.HandleFunc("/articles/search", fetchArticlesByCategory).Methods("GET")
+	router.HandleFunc("/articles", addArticle).Methods("POST")
 
 	port, exists := os.LookupEnv("PORT")
 	if !exists {

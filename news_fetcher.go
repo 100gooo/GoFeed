@@ -41,7 +41,19 @@ func init() {
 }
 
 func FetchNews() {
-	url := "https://newsapi.org/v2/top-headlines?country=us&apiKey=" + NewsAPIKey
+	fetchNewsWithKeyword("") // Fetch all top headlines
+}
+
+func FetchNewsByKeyword(keyword string) {
+	fetchNewsWithKeyword(keyword) // Fetch news by specific keyword
+}
+
+func fetchNewsWithKeyword(keyword string) {
+	baseUrl := "https://newsapi.org/v2/top-headlines?country=us"
+	if keyword != "" {
+		baseUrl += "&q=" + keyword
+	}
+	url := baseUrl + "&apiKey=" + NewsAPIKey
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -65,7 +77,7 @@ func main() {
 
 	go func() {
 		for ; true; <-ticker.C {
-			FetchNews()
+			FetchNewsByKeyword("technology") // Example usage: Fetch news about technology
 		}
 	}()
 

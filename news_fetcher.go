@@ -2,7 +2,7 @@ package main
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -27,7 +27,12 @@ type News struct {
 	} `json:"articles"`
 }
 
-var NewsAPIKey string
+var (
+	NewsAPIKey string
+	httpClient = &http.Client{
+		Timeout: 10 * time.Second,
+	}
+)
 
 func init() {
 	if err := godotenv.Load(); err != nil {
@@ -55,14 +60,19 @@ func fetchNewsWithKeyword(keyword string) {
 	}
 	url := baseUrl + "&apiKey=" + NewsAPIKey
 
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		log.Fatalf("Error fetching news: %s", err.Error())
 	}
 	defer resp.Body.Close()
 
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalf("Error reading response body: %s", err.Error())
+	}
+
 	var news News
-	if err := json.NewDecoder(resp.Body).Decode(&news); err != nil {
+	if err := json.Unmarshal(body, &news); err != nil {
 		log.Fatalf("Error decoding news JSON: %s", err.Error())
 	}
 

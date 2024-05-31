@@ -11,56 +11,62 @@ import (
 	"github.com/joho/godotenv"
 )
 
-type News struct {
-	Status       string `json:"status"`
-	TotalResults int    `json:"totalResults"`
-	Articles     []struct {
-		Source struct {
-			ID   interface{} `json:"id"`
-			Name string      `json:"name"`
-		} `json:"source"`
-		Author      string    `json:"author"`
-		Title       string    `json:"title"`
-		Description string    `json:"description"`
-		Url         string    `json:"url"`
-		PublishedAt string    `json:"publishedAt"`
-	} `json:"articles"`
+type Article struct {
+	Source struct {
+		ID   interface{} `json:"id"`
+		Name string      `json:"name"`
+	} `json:"source"`
+	Author      string `json:"author"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	URL         string `json:"url"`
+	PublishedAt string `json:"publishedAt"`
+}
+
+type NewsResponse struct {
+	Status       string    `json:"status"`
+	TotalResults int       `json:"totalResults"`
+	Articles     []Article `json:"articles"`
 }
 
 var (
-	NewsAPIKey string
+	newsAPIKey string
 	httpClient = &http.Client{
 		Timeout: 10 * time.Second,
 	}
 )
 
-func init() {
+func loadConfig() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatalf("Error loading .env file")
 	}
 
-	NewsAPIKey = os.Getenv("NEWS_API_KEY")
-	if NewsAPIKey == "" {
+	newsAPIKey = os.Getenv("NEWS_API_KEY")
+	if newsAPIKey == "" {
 		log.Fatalf("NEWS_API_KEY must be set in the environment variables")
 	}
 }
 
-func FetchNews() {
-	fetchNewsWithKeyword("") // Fetch all top headlines
+func init() {
+	loadConfig()
 }
 
-func FetchNewsByKeyword(keyword string) {
-	fetchNewsWithKeyword(keyword) // Fetch news by specific keyword
+func fetchLatestHeadlines() {
+	fetchNews("") // Fetch all top headlines without a keyword
 }
 
-func fetchNewsWithKeyword(keyword string) {
-	baseUrl := "https://newsapi.org/v2/top-headlines?country=us"
+func fetchNewsByKeyword(keyword string) {
+	fetchNews(keyword) // Fetch headlines by a specific keyword
+}
+
+func fetchNews(keyword string) {
+	newsAPIBaseURL := "https://newsapi.org/v2/top-headlines?country=us"
 	if keyword != "" {
-		baseUrl += "&q=" + keyword
+		newsAPIBaseURL += "&q=" + keyword
 	}
-	url := baseUrl + "&apiKey=" + NewsAPIKey
+	requestURL := newsAPIBaseURL + "&apiKey=" + newsAPIKey
 
-	resp, err := httpClient.Get(url)
+	resp, err := httpClient.Get(requestURL)
 	if err != nil {
 		log.Fatalf("Error fetching news: %s", err.Error())
 	}
@@ -71,27 +77,27 @@ func fetchNewsWithKeyword(keyword string) {
 		log.Fatalf("Error reading response body: %s", err.Error())
 	}
 
-	var news News
+	var news NewsResponse
 	if err := json.Unmarshal(body, &news); err != nil {
 		log.Fatalf("Error decoding news JSON: %s", err.Error())
 	}
 
 	for _, article := range news.Articles {
-		log.Printf("News: %s - %s\n", article.Source.Name, article.Title)
+		log.Printf("Article: %s - %s\n", article.Source.Name, article.Title)
 	}
 }
 
 func main() {
-	ticker := time.NewTicker(30 * time.Minute)
-	defer ticker.Stop()
+	newsUpdateTicker := time.NewTicker(30 * time.Minute)
+	defer newsUpdateTicker.Stop()
 
 	go func() {
-		for ; true; <-ticker.C {
-			FetchNewsByKeyword("technology") // Example usage: Fetch news about technology
+		for range newsUpdateTicker.C {
+			fetchNewsByKeyword("technology") // Example usage: Fetch news about technology
 		}
 	}()
 
-	FetchNews()
+	fetchLatestHeadlines()
 
 	select {}
 }

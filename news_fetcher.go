@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -38,7 +39,7 @@ var (
 
 func loadConfig() {
 	if err := godotenv.Load(); err != nil {
-		log.Fatalf("Error loading .env file")
+		log.Fatalf("Error loading .env file: %s", err)
 	}
 
 	newsAPIKey = os.Getenv("NEWS_API_KEY")
@@ -64,22 +65,35 @@ func fetchNews(keyword string) {
 	if keyword != "" {
 		newsAPIBaseURL += "&q=" + keyword
 	}
-	requestURL := newsAPIBaseURL + "&apiKey=" + newsAPIKey
+	requestURL := newsAPIBasefluxURL + "&apiKey=" + newsAPIKey
 
 	resp, err := httpClient.Get(requestURL)
 	if err != nil {
-		log.Fatalf("Error fetching news: %s", err.Error())
+		log.Printf("Error fetching news: %v", err)
+		return
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("API request failed with status code %d: %s", resp.StatusCode, resp.Status)
+		return
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Fatalf("Error reading response body: %s", err.Error())
+		log.Printf("Error reading response body: %v", err)
+		return
 	}
 
 	var news NewsResponse
 	if err := json.Unmarshal(body, &news); err != nil {
-		log.Fatalf("Error decoding news JSON: %s", err.Error())
+		log.Printf("Error decoding news JSON: %v", err)
+		return
+	}
+
+	if news.Status != "ok" {
+		log.Printf("Error with the news API response: %s", news.Status)
+		return
 	}
 
 	for _, article := range news.Articles {
@@ -98,6 +112,5 @@ func main() {
 	}()
 
 	fetchLatestHeadlines()
-
 	select {}
 }

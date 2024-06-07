@@ -44,12 +44,11 @@ func CategorizeNews(items []NewsItem) []NewsItem {
 }
 
 func FetchNewsItems() []NewsItem {
-    newsItems := []NewsItem{
+    return []NewsItem{
         {Title: "Election Day", Description: "Election day is coming", Content: "The upcoming elections will decide the new president."},
         {Title: "Tech Conference", Description: "Annual Tech Conference", Content: "This year's tech conference will showcase new innovations in AI."},
         {Title: "World Cup", Description: "World Cup starts next month", Content: "Countries around the world will compete in the biggest soccer tournament."},
     }
-    return newsItems
 }
 
 func FetchRealTimeNews(apiKey string) []NewsItem {
@@ -58,21 +57,25 @@ func FetchRealTimeNews(apiKey string) []NewsItem {
     url := "https://api.example.com/news?apiKey=" + apiKey
     resp, err := http.Get(url)
     if err != nil {
-        log.Fatalf("Failed to fetch real-time news: %v", err)
+        log.Printf("Failed to fetch real-time news: %v", err)
+        return nil // return nil to indicate failure to caller
     }
     defer resp.Body.Close()
 
     if resp.StatusCode != http.StatusOK {
-        log.Fatalf("Received non-200 response status: %d", resp.StatusCode)
+        log.Printf("Received non-200 response status: %d", resp.StatusCode)
+        return nil // similarly, return nil to indicate an unsuccessful HTTP request
     }
 
     body, err := ioutil.ReadAll(resp.Body)
-    if err != nil{
-        log.Fatalf("Failed to read response body: %v", err)
+    if err != nil {
+        log.Printf("Failed to read response body: %v", err)
+        return nil
     }
 
-    if err := json.Unmarshal(body, &newsItems); err != nil {
-        log.Fatalf("Failed to unmarshal news items: %v", err)
+    if err := json.Unmarshal(body, &newsources); err != nil {
+        log.Printf("Failed to unmarshal news items: %v", err)
+        return nil
     }
 
     return newsItems
@@ -87,23 +90,32 @@ func contains(slice []string, str string) bool {
     return false
 }
 
-func loadEnv() {
+func loadEnv() bool {
     if err := godotenv.Load(); err != nil {
-        log.Fatal("Error loading .env file")
+        log.Printf("Error loading .env file: %v", err)
+        return false // indicate failure
     }
+    return true // indicate success
 }
 
 func main() {
-    loadEnv()
+    if !loadEnv() {
+        return // stop execution if critical startup configuration fails
+    }
 
     newsAPIKey := os.Getenv("NEWS_API_KEY")
     newsItems := FetchRealTimeNews(newsAPIKey)
+    if newsItems == nil {
+        log.Println("No news items fetched")
+        return // proceed further based on your application's context; in this case, just a simple log
+    }
 
     categorizedItems := CategorizeNews(newsItems)
 
     categorizedJSON, err := json.Marshal(categorizedItems)
     if err != nil {
-        log.Fatalf("Failed to marshal news items: %v", err)
+        log.Printf("Failed to marshal news items: %v", err)
+        return
     }
 
     log.Println(string(categorizedJSON))

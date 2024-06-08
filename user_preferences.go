@@ -2,15 +2,22 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 )
 
+type UserNotFoundError struct {
+	UserID string
+}
+
+func (e *UserNotFoundError) Error() string {
+	return fmt.Sprintf("user with ID %s not found", e.UserID)
+}
+
 type UserPreferences struct {
 	FavoriteCategories []string `json:"favoriteCategories"`
-	Notification bool `json:"notification"`
-	FeedPresentation string `json:"feedPresentation"`
+	Notification       bool     `json:"notification"`
+	FeedPresentation   string   `json:"feedPresentation"`
 }
 
 type PreferencesService struct {
@@ -24,11 +31,9 @@ func NewPreferencesService() *PreferencesService {
 }
 
 func (p *PreferencesService) UpdatePreferences(userID string, preferences UserPreferences) error {
-	_, exists := p.preferences[userID]
-	if !exists {
-		return errors.New("user not found")
+	if _, exists := p.preferences[userID]; !exists {
+		return &UserNotFoundError{UserID: userID}
 	}
-
 	p.preferences[userID] = preferences
 	return nil
 }
@@ -36,9 +41,8 @@ func (p *PreferencesService) UpdatePreferences(userID string, preferences UserPr
 func (p *PreferencesService) GetPreferences(userID string) (UserPreferences, error) {
 	preferences, exists := p.preferences[userID]
 	if !exists {
-		return UserPreferences{}, errors.New("user not found")
+		return UserPreferences{}, &UserNotFoundError{UserID: userID}
 	}
-
 	return preferences, nil
 }
 
@@ -55,13 +59,18 @@ func main() {
 	userID := "123"
 	pref := UserPreferences{
 		FavoriteCategories: []string{"Tech", "Sports"},
-		Notification: true,
-		FeedPresentation: "Compact",
+		Notification:       true,
+		FeedPresentation:   "Compact",
 	}
+	service.preferences[userID] = pref
 
 	err := service.UpdatePreferences(userID, pref)
 	if err != nil {
-		fmt.Println("Error updating preferences:", err)
+		if _, ok := err.(*UserNotFoundError); ok {
+			fmt.Println("Error:", err)
+		} else {
+			fmt.Println("Unexpected error updating preferences:", err)
+		}
 		return
 	}
 
@@ -70,7 +79,10 @@ func main() {
 		fmt.Println("Error fetching preferences:", err)
 		return
 	}
-
-	prefJson, _ := json.Marshal(updatedPref)
+	prefJson, err := json.Marshal(updatedPref)
+	if err != nil {
+		fmt.Println("Error marshalling preferences to JSON:", err)
+		return
+	}
 	fmt.Println("Updated Preferences:", string(prefJson))
 }

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 )
 
@@ -38,7 +39,7 @@ func (p *PreferencesService) UpdatePreferences(userID string, preferences UserPr
 	return nil
 }
 
-func (p *PreferencesService) GetPreferences(userID string) (UserPreferences, error) {
+func (p *PreferenceseService) GetPreferences(userID string) (UserPreferences, error) {
 	preferences, exists := p.preferences[userID]
 	if !exists {
 		return UserPreferences{}, &UserNotFoundError{UserID: userID}
@@ -51,38 +52,83 @@ func LoadConfiguration() error {
 	return nil
 }
 
+// HTTP Handlers
+func (p *PreferencesService) updatePreferencesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method is not supported.", http.StatusNotFound)
+		return
+	}
+	var userID = r.URL.Query().Get("userID")
+	if userID == "" {
+		http.Error(w, "UserID is required", http.StatusBadRequest)
+		return
+	}
+
+	var preferences UserPreferences
+	err := json.NewDecoder(r.Body).Decode(&preferences)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	err = p.UpdatePreferences(userID, preferences)
+	if err != nil {
+		if _, ok := err.(*UserNotFoundError); ok {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, "Unexpected error updating preferences", http.StatusInternalServerError)
+		}
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (p *PreferencesService) getPreferencesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method is not supported.", http.StatusNotFound)
+		return
+	}
+	var userID = r.URL.Query().Get("userID")
+	if userID == "" {
+		http.Error(w, "UserID is required", http.StatusBadRequest)
+		return
+	}
+
+	preferences, err := p.GetPreferences(userID)
+	if err != nil {
+		if _, ok := err.(*UserNotFoundError); ok {
+			http.Error(w, err.Error(), http.StatusNotFound)
+		} else {
+			http.Error(w, "Unexpected error fetching preferences", http.StatusInternalServerError)
+		}
+		return
+	}
+
+	json.NewEncoder(w).Encode(preferences)
+}
+
+func (p *PreferencesService) registerHandlers() {
+	http.HandleFunc("/preferences", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case "GET":
+			p.getPreferencesHandler(w, r)
+		case "POST":
+			p.updatePreferencesHandler(w, r)
+		default:
+			http.Error(w, "Method not supported", http.StatusNotFound)
+		}
+	})
+}
+
 func main() {
 	LoadConfiguration()
 
 	service := NewPreferencesService()
 
-	userID := "123"
-	pref := UserPreferences{
-		FavoriteCategories: []string{"Tech", "Sports"},
-		Notification:       true,
-		FeedPresentation:   "Compact",
+	// Start HTTP server
+	service.registerHandlers()
+	fmt.Println("Starting server at port 8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
 	}
-	service.preferences[userID] = pref
-
-	err := service.UpdatePreferences(userID, pref)
-	if err != nil {
-		if _, ok := err.(*UserNotFoundError); ok {
-			fmt.Println("Error:", err)
-		} else {
-			fmt.Println("Unexpected error updating preferences:", err)
-		}
-		return
-	}
-
-	updatedPref, err := service.GetPreferences(userID)
-	if err != nil {
-		fmt.Println("Error fetching preferences:", err)
-		return
-	}
-	prefJson, err := json.Marshal(updatedPref)
-	if err != nil {
-		fmt.Println("Error marshalling preferences to JSON:", err)
-		return
-	}
-	fmt.Println("Updated Preferences:", string(prefJson))
 }

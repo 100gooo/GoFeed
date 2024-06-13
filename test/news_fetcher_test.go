@@ -10,67 +10,68 @@ import (
 	"yourapp/news_fetcher"
 )
 
-func TestFetchNewsSuccessfully(t *testing.T) {
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestFetchNewsSucceeds(t *testing.T) {
+	mockNewsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok","articles":[{"title":"Fake News Title","description":"Fake News Description"}]}`))
 	}))
-	defer mockAccServer.Close()
+	defer mockNewsServer.Close()
 
-	os.Setenv("NEWS_API_URL", mockServer.URL)
+	os.Setenv("NEWS_API_URL", mockNewsServer.URL)
 	defer os.Unsetenv("NEWS_API_URL")
 
-	newsItems, err := news_fetcher.FetchNews()
+	fetchedArticles, err := news_fetcher.FetchNews()
 	if err != nil {
-		t.Fatalf("Expected no error, got %v", err)
+		t.Fatalf("Did not expect an error, received: %v", err)
 	}
 
-	if len(newsItems) != 1 {
-		t.Fatalf("Expected 1 news item, got %d", len(newsItems))
+	if len(fetchedArticles) != 1 {
+		t.Fatalf("Expected 1 article, found: %d", len(fetchedArticles))
 	}
 
-	if newsItems[0].Title != "Fake News Title" {
-		t.Errorf("Expected title to be 'Fake News Title', got '%s'", newsItems[0].Title)
+	if fetchedArticles[0].Title != "Fake News Title" {
+		t.Errorf("Expected article title to be 'Fake News Title', found: '%s'", fetchedArticles[0].Title)
 	}
 }
 
-func TestFetchNewsWithError(t *testing.T) {
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestFetchNewsReturnsErrorOnServerFailure(t *testing.T) {
+	mockErrorResponseServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
-	defer mockServer.Close()
+	defer mockErrorResponseServer.Close()
 
-	os.Setenv("NEWS_API_URL", mockServer.URL)
+	os.Setenv("NEWS_API_URL", mockErrorResponseServer.URL)
 	defer os.Unsetenv("NEWS_API_URL")
 
 	_, err := news_fetcher.FetchNews()
 	if err == nil {
-		t.Fatal("Expected an error, got none")
+		t.Fatal("Expected an error, received none")
 	}
 
-	var apiErr *news_fetcher.APIError
-	if !errors.As(err, &apiErr) {
-		t.Errorf("Expected an APIError, got %T", err)
+	var fetchError *news_fetcher.APIError
+	if !errors.As(err, &fetchError) {
+		t.Errorf("Expected an APIError, received: %T", err)
 	}
 }
 
-func TestFetchNewsWithInvalidJSON(t *testing.T) {
-	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func TestFetchNewsHandlesInvalidJSONResponse(t *testing.T) {
+	mockInvalidJsonServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`invalid json`))
+		w.Write([]byte("invalid json"))
 	}))
-	defer mockServer.Close()
+	defer mockInvalidJsonServer.Close()
 
-	os.Setenv("NEWS_API_URL", mockServer.URL)
+	os.Setenv("NEWS_API_URL", mockInvalidJsonServer.URL)
 	defer os.Unsetenv("NEWS_API_URL")
 
 	_, err := news_fetcher.FetchNews()
 	if err == nil {
-		t.Fatal("Expected an error, got none")
+		t.Fatal("Expected an error, received none")
 	}
 
-	if err != nil && !errors.As(err, &json.SyntaxError{}) {
-		t.Errorf("Expected a JSON syntax error, got %v", err)
+	var syntaxError *json.SyntaxError
+	if !errors.As(err, &syntaxError) {
+		t.Errorf("Expected a JSON syntax error, received: %v", err)
 	}
 }

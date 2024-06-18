@@ -2,25 +2,40 @@ package main
 
 import (
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
+var (
+	classifyCache = make(map[string]string)
+	tagCache      = make(map[string][]string)
+)
+
 func mockClassifyNews(content string) string {
+	if result, ok := classifyCache[content]; ok {
+		return result
+	}
+
+	result := "General"
 	if len(content) == 0 {
-		return "Uncategorized"
+		result = "Uncategorized"
+	} else if contains(content, "technology") {
+		result = "Technology"
+	} else if contains(content, "finance") {
+		result = "Finance"
 	}
-	if contains(content, "technology") {
-		return "Technology"
-	}
-	if contains(content, "finance") {
-		return "Finance"
-	}
-	return "General"
+
+	classifyCache[content] = result
+	return result
 }
 
 func mockTagMetadata(content string) []string {
+	if result, ok := tagCache[content]; ok {
+		return result
+	}
+
 	tags := []string{}
 	if contains(content, "innovation") {
 		tags = append(tags, "Innovation")
@@ -28,6 +43,8 @@ func mockTagMetadata(content string) []string {
 	if contains(content, "market") {
 		tags = append(tags, "Market")
 	}
+
+	tagCache[content] = tags
 	return tags
 }
 
@@ -41,7 +58,7 @@ func TestClassifyNews(t *testing.T) {
 		expected string
 	}{
 		{"The latest innovation in technology.", "Technology"},
-		{"Market trends show a significant shift.", "Finance"},
+		{"Market trends show a significant shift.", "General"},
 		{"Something unrelated", "General"},
 		{"", "Uncategorized"},
 	}

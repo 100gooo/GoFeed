@@ -9,50 +9,50 @@ import (
 )
 
 var (
-	classifyCache = make(map[string]string)
-	tagCache      = make(map[string][]string)
+	newsClassificationCache = make(map[string]string)
+	newsTagsCache           = make(map[string][]string)
 )
 
-func mockClassifyNews(content string) string {
-	if result, ok := classifyCache[content]; ok {
-		return result
+func ClassifyNewsContent(content string) string {
+	if classification, found := newsClassificationCache[content]; found {
+		return classification
 	}
 
-	result := "General"
+	classification := "General"
 	if len(content) == 0 {
-		result = "Uncategorized"
-	} else if contains(content, "technology") {
-		result = "Technology"
-	} else if contains(content, "finance") {
-		result = "Finance"
+		classification = "Uncategorized"
+	} else if containsIgnoreCase(content, "technology") {
+		classification = "Technology"
+	} else if containsIgnoreCase(content, "finance") {
+		classification = "Finance"
 	}
 
-	classifyCache[content] = result
-	return result
+	newsClassificationCache[content] = classification
+	return classification
 }
 
-func mockTagMetadata(content string) []string {
-	if result, ok := tagCache[content]; ok {
-		return result
+func ExtractTagsFromContent(content string) []string {
+	if tags, found := newsTagsCache[content]; found {
+		return tags
 	}
 
-	tags := []string{}
-	if contains(content, "innovation") {
+	var tags []string
+	if containsIgnoreCase(content, "innovation") {
 		tags = append(tags, "Innovation")
 	}
-	if contains(content, "market") {
+	if containsIgnoreCase(content, "market") {
 		tags = append(tags, "Market")
 	}
 
-	tagCache[content] = tags
+	newsTagsCache[content] = tags
 	return tags
 }
 
-func contains(content, keyword string) bool {
+func containsIgnoreCase(content, keyword string) bool {
 	return strings.Contains(strings.ToLower(content), strings.ToLower(keyword))
 }
 
-func TestClassifyNews(t *testing.T) {
+func TestNewsClassification(t *testing.T) {
 	testCases := []struct {
 		content  string
 		expected string
@@ -64,12 +64,12 @@ func TestClassifyNews(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		result := mockClassifyNews(tc.content)
-		assert.Equal(t, tc.expected, result, "They should be equal")
+		actualClassification := ClassifyNewsContent(tc.content)
+		assert.Equal(t, tc.expected, actualClassification, "Expected and actual classification should match")
 	}
 }
 
-func TestTagMetadata(t *testing.T) {
+func TestNewsTagExtraction(t *testing.T) {
 	testCases := []struct {
 		content  string
 		expected []string
@@ -80,17 +80,17 @@ func TestTagMetadata(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		result := mockTagMetadata(tc.content)
-		assert.Equal(t, tc.expected, result, "The tags should match")
+		actualTags := ExtractTagsFromContent(tc.content)
+		assert.Equal(t, tc.expected, actualTags, "Expected and actual tags should match")
 	}
 }
 
-func setUpEnv() {
+func SetupEnvironmentVariables() {
 	os.Setenv("API_KEY", "YourAPIKeyHere")
 }
 
 func TestMain(m *testing.M) {
-	setUpEnv()
+	SetupEnvironmentVariables()
 	code := m.Run()
 	os.Exit(code)
 }

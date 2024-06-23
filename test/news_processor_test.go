@@ -8,52 +8,59 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	newsClassificationCache = make(map[string]string)
-	newsTagsCache           = make(map[string][]string)
-)
-
-func ClassifyNewsContent(content string) string {
-	if classification, found := newsClassificationCache[content]; found {
-		return classification
-	}
-
-	classification := "General"
-	if len(content) == 0 {
-		classification = "Uncategorized"
-	} else if containsIgnoreCase(content, "technology") {
-		classification = "Technology"
-	} else if containsIgnoreCase(content, "finance") {
-		classification = "Finance"
-	}
-
-	newsClassificationCache[content] = classification
-	return classification
+type NewsData struct {
+	Classification string
+	Tags           []string
 }
 
-func ExtractTagsFromContent(content string) []string {
-	if tags, found := newsTagsCache[content]; found {
-		return tags
+var (
+	newsCache = make(map[string]*NewsData)
+)
+
+func ClassifyAndExtract(content string) (string, []string) {
+	if data, found := newsCache[content]; found {
+		return data.Classification, data.Tags
 	}
 
+	classification, tags := processContent(content)
+
+	newsCache[content] = &NewsData{
+		Classification: classification,
+		Tags:           tags,
+	}
+
+	return classification, tags
+}
+
+func processContent(content string) (string, []string) {
+	classification := "General"
 	var tags []string
-	if containsIgnoreCase(content, "innovation") {
-		tags = append(tags, "Innovation")
-	}
-	if containsIgnoreCase(content, "market") {
-		tags = append(tags, "Market")
+
+	if len(content) == 0 {
+		classification = "Uncategorized"
+	} else {
+		if containsIgnoreCase(content, "technology") {
+			classification = "Technology"
+		} else if containsIgnoreCase(content, "finance") {
+			classification = "Finance"
+		}
+		if containsIgnoreCase(content, "innovation") {
+			tags = append(tags, "Innovation")
+		}
+		if containsIgnoreCase(content, "market") {
+			tags = append(tags, "Market")
+		}
 	}
 
-	newsTagsCache[content] = tags
-	return tags
+	return classification, tags
 }
 
 func containsIgnoreCase(content, keyword string) bool {
 	return strings.Contains(strings.ToLower(content), strings.ToLower(keyword))
 }
 
-func TestNewsClassification(t *testing.T) {
-	testCases := []struct {
+func TestNewsProcessing(t *testing.T) {
+	classificationTestCases := []struct {
 		content  string
 		expected string
 	}{
@@ -63,14 +70,12 @@ func TestNewsClassification(t *testing.T) {
 		{"", "Uncategorized"},
 	}
 
-	for _, tc := range testCases {
-		actualClassification := ClassifyNewsContent(tc.content)
-		assert.Equal(t, tc.expected, actualClassification, "Expected and actual classification should match")
+	for _, tc := range classificationTestCases {
+		classification, _ := ClassifyAndExtract(tc.content)
+		assert.Equal(t, tc.expected, classification, "Expected and actual classification should match")
 	}
-}
 
-func TestNewsTagExtraction(t *testing.T) {
-	testCases := []struct {
+	tagTestCases := []struct {
 		content  string
 		expected []string
 	}{
@@ -79,9 +84,9 @@ func TestNewsTagExtraction(t *testing.T) {
 		{"A general news piece.", nil},
 	}
 
-	for _, tc := range testCases {
-		actualTags := ExtractTagsFromContent(tc.content)
-		assert.Equal(t, tc.expected, actualTags, "Expected and actual tags should match")
+	for _, tc := range tagTestCases {
+		_, tags := ClassifyAndExtract(tc.content)
+		assert.Equal(t, tc.expected, tags, "Expected and actual tags should match")
 	}
 }
 
